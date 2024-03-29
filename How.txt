@@ -1,0 +1,72 @@
+1- download mysql server 
+2- downlaod the requirements : 
+    pip install pika
+    pip install mysql-connector-python
+    pip install pymysql
+3- open mysql server 
+4- run these commands in mysql server 
+    4.1 - source "add the BO1.sql path file" ;// do this for the 3 files BO1 BO2 and HO_database
+    4.2- use BO1_databse ;
+    4.3- DELIMITER //
+        CREATE PROCEDURE capture_product_sales_changes(IN query VARCHAR(2000))
+        BEGIN
+        -- Write the captured query to a file
+        INSERT INTO product_sales_changes_log (query, created_at)
+        VALUES (query, NOW());
+        END //
+        DELIMITER ;
+    4.4-CREATE TABLE product_sales_changes_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        query VARCHAR(2000) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+    4.5-
+        DELIMITER //
+
+        CREATE TRIGGER product_sales_insert_trigger
+        AFTER INSERT ON product_sales
+        FOR EACH ROW
+        BEGIN
+        DECLARE sql_stmt VARCHAR(2000);
+        SET sql_stmt = CONCAT('INSERT INTO product_sales (date, region, product, qty, cost, amount, tax, total) VALUES (\'', NEW.date, '\', \'', NEW.region, '\', \'', NEW.product, '\', ', NEW.qty, ', ', NEW.cost, ', ', NEW.amount, ', ', NEW.tax, ', ', NEW.total, ');');
+        -- Call the stored procedure to log the captured statement
+        CALL capture_product_sales_changes(sql_stmt);
+        END //
+
+        CREATE TRIGGER product_sales_update_trigger
+        AFTER UPDATE ON product_sales
+        FOR EACH ROW
+        BEGIN
+        DECLARE sql_stmt VARCHAR(2000);
+        SET sql_stmt = CONCAT('UPDATE product_sales SET date = \'', NEW.date, '\', region = \'', NEW.region, '\', product = \'', NEW.product, '\', qty = ', NEW.qty, ', cost = ', NEW.cost, ', amount = ', NEW.amount, ', tax = ', NEW.tax, ', total = ', NEW.total, ' WHERE date = \'', OLD.date, '\' AND region = \'', OLD.region, '\' AND product = \'', OLD.product, '\';');
+        -- Call the stored procedure to log the captured statement
+        CALL capture_product_sales_changes(sql_stmt);
+        END //
+
+        CREATE TRIGGER product_sales_delete_trigger
+        AFTER DELETE ON product_sales
+        FOR EACH ROW
+        BEGIN
+        DECLARE sql_stmt VARCHAR(2000);
+        SET sql_stmt = CONCAT('DELETE FROM product_sales WHERE date = \'', OLD.date, '\' AND region = \'', OLD.region, '\' AND product = \'', OLD.product, '\';');
+        -- Call the stored procedure to log the captured statement
+        CALL capture_product_sales_changes(sql_stmt);
+        END //
+
+        DELIMITER ;
+    4.6- redo step 4.2/3/4/5 for BO2 --- the only modification will be use BO2_databse ; the rest remains THE SAME !
+
+5-Make the modificatiosn in your database : BO1 AND BO2 (you can find some ready quries in the notes.txt at the bottom)
+6-for synchronizing the modifications made in the two databases :  
+    6.1-run the synchronize.py file of BO1 
+        run the BO1.py file 
+        run the synchronize.py file of BO2 
+        run the BO2.py file 
+        run the HO.py file 
+AND VOILAA ! your HO table is sychronized ! check it :D
+
+RA7MOULI AALE WALDEYA 
+
+    
+
+
